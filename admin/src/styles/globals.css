@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html[dir="rtl"] {
+  direction: rtl;
+}
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background-color: #f5f5f5;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Sidebar Styling */
+.sidebar {
+  @apply w-64 bg-primary-900 text-white min-h-screen fixed right-0 top-0 overflow-y-auto;
+}
+
+.sidebar-item {
+  @apply px-6 py-3 hover:bg-primary-800 transition-colors cursor-pointer flex items-center gap-3;
+}
+
+.sidebar-item.active {
+  @apply bg-primary-700 border-r-4 border-accent-700;
+}
+
+/* Table Styling */
+.admin-table {
+  @apply w-full border-collapse;
+}
+
+.admin-table th {
+  @apply bg-primary-900 text-white px-6 py-3 text-right;
+}
+
+.admin-table td {
+  @apply px-6 py-3 border-b border-gray-300;
+}
+
+.admin-table tbody tr:hover {
+  @apply bg-gray-100;
+}
+
+/* Button Styles */
+.btn-primary {
+  @apply px-6 py-2 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors;
+}
+
+.btn-danger {
+  @apply px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors;
+}
+
+.btn-success {
+  @apply px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors;
+}
+
+.btn-secondary {
+  @apply px-6 py-2 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition-colors;
+}
+
+/* Form Inputs */
+.form-input {
+  @apply w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-600 transition-colors;
+}
+
+.form-textarea {
+  @apply w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-600 transition-colors resize-none;
+}
+
+.form-select {
+  @apply w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-600 transition-colors;
+}
+
+/* Cards */
+.card {
+  @apply bg-white rounded-lg shadow-md p-6;
+}
+
+.card-header {
+  @apply flex justify-between items-center mb-6 pb-6 border-b-2 border-gray-200;
+}
+
+.card-title {
+  @apply text-2xl font-bold text-primary-900;
+}
+
+/* Modal */
+.modal {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg p-6 max-w-2xl w-full mx-4;
+}
+
+.modal-header {
+  @apply flex justify-between items-center mb-6 pb-6 border-b-2 border-gray-200;
+}
+
+.modal-title {
+  @apply text-xl font-bold text-primary-900;
+}
+
+.modal-close {
+  @apply text-gray-500 hover:text-gray-700 cursor-pointer;
+}
+
+/* Stats Cards */
+.stat-card {
+  @apply bg-white rounded-lg shadow-md p-6 flex items-center justify-between;
+}
+
+.stat-icon {
+  @apply w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-primary-600;
+}
+
+.stat-value {
+  @apply text-3xl font-bold text-primary-900;
+}
+
+.stat-label {
+  @apply text-gray-600 text-sm;
+}
