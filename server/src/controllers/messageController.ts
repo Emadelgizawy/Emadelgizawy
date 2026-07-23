@@ -2,74 +2,88 @@
 import { Request, Response } from 'express';
 import Message from '../models/Message';
 
-export const create = async (req: Request, res: Response) => {
+interface AuthRequest extends Request {
+  user?: any;
+}
+
+export const createMessage = async (req: Request, res: Response) => {
   try {
-    const { senderName, senderPhone, senderEmail, content, channel } = req.body;
+    const { senderName, senderPhone, senderEmail, content, channel, relatedOrder, attachments } = req.body;
+
+    if (!senderName || !senderPhone || !content || !channel) {
+      return res.status(400).json({ error: 'البيانات المطلوبة غير كاملة' });
+    }
 
     const message = new Message({
-      senderId: req.user?.userId,
       senderName,
       senderPhone,
       senderEmail,
       content,
-      channel
+      channel,
+      relatedOrder,
+      attachments,
+      read: false,
+      status: 'open'
     });
 
     await message.save();
 
     res.status(201).json({
       success: true,
-      message: 'تم استلام رسالتك، سيتم الرد عليك قريباً',
+      message: 'تم استقبال رسالتك، سيتم الرد عليك قريباً',
       data: message
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ في إرسال الرسالة' });
   }
 };
 
-export const getAll = async (req: Request, res: Response) => {
+export const getMessages = async (req: Request, res: Response) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
-    }
+    const { status, channel } = req.query;
+    let query: any = {};
 
-    const { status = 'open', sort = '-createdAt', page = 1, limit = 10 } = req.query;
+    if (status) query.status = status;
+    if (channel) query.channel = channel;
 
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
-
-    const messages = await Message.find({ status })
-      .sort(sort as string)
-      .skip(skip)
-      .limit(limitNum);
-
-    const total = await Message.countDocuments({ status });
+    const messages = await Message.find(query).sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      data: messages,
-      pagination: {
-        total,
-        pages: Math.ceil(total / limitNum),
-        currentPage: pageNum
-      }
+      data: messages
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const updateStatus = async (req: Request, res: Response) => {
+export const markMessageAsRead = async (req: Request, res: Response) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
-    }
-
-    const { status } = req.body;
+    const { id } = req.params;
     const message = await Message.findByIdAndUpdate(
-      req.params.id,
-      { status, read: true, updatedAt: new Date() },
+      id,
+      { read: true, updatedAt: new Date() },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'تم تحديث الرسالة',
+      data: message
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
+  }
+};
+
+export const updateMessageStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const message = await Message.findByIdAndUpdate(
+      id,
+      { status, updatedAt: new Date() },
       { new: true }
     );
 
@@ -78,7 +92,7 @@ export const updateStatus = async (req: Request, res: Response) => {
       message: 'تم تحديث حالة الرسالة',
       data: message
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };

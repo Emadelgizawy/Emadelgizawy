@@ -2,28 +2,28 @@
 import { Request, Response } from 'express';
 import Product from '../models/Product';
 
-export const getAll = async (req: Request, res: Response) => {
+export const getAllProducts = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 12, category, search } = req.query;
+    const { category, page = 1, limit = 12, search } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
 
-    const filter: any = { isActive: true };
-    if (category) filter.category = category;
+    let query: any = { isActive: true };
+
+    if (category) {
+      query.category = category;
+    }
+
     if (search) {
-      filter.$or = [
+      query.$or = [
         { nameAr: { $regex: search, $options: 'i' } },
-        { nameEn: { $regex: search, $options: 'i' } },
-        { descriptionAr: { $regex: search, $options: 'i' } }
+        { nameEn: { $regex: search, $options: 'i' } }
       ];
     }
 
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
-
-    const total = await Product.countDocuments(filter);
-    const products = await Product.find(filter)
+    const total = await Product.countDocuments(query);
+    const products = await Product.find(query)
       .skip(skip)
-      .limit(limitNum)
+      .limit(Number(limit))
       .sort({ createdAt: -1 });
 
     res.json({
@@ -31,50 +31,68 @@ export const getAll = async (req: Request, res: Response) => {
       data: products,
       pagination: {
         total,
-        pages: Math.ceil(total / limitNum),
-        currentPage: pageNum
+        pages: Math.ceil(total / Number(limit)),
+        currentPage: page
       }
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const getById = async (req: Request, res: Response) => {
+export const getProductById = async (req: Request, res: Response) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
+    const product = await Product.findById(id).populate('reviews');
+
     if (!product) {
       return res.status(404).json({ error: 'المنتج غير موجود' });
     }
 
-    res.json({ success: true, data: product });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.json({
+      success: true,
+      data: product
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const getFeatured = async (req: Request, res: Response) => {
+export const getFeaturedProducts = async (req: Request, res: Response) => {
   try {
-    const products = await Product.find({ isFeatured: true, isActive: true }).limit(8);
-    res.json({ success: true, data: products });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    const products = await Product.find({
+      isActive: true,
+      isFeatured: true
+    }).limit(6);
+
+    res.json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const create = async (req: Request, res: Response) => {
+export const createProduct = async (req: Request, res: Response) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
+    const { nameAr, nameEn, descriptionAr, category, price, images, specifications } = req.body;
+
+    if (!nameAr || !nameEn || !descriptionAr || !category || !price) {
+      return res.status(400).json({ error: 'البيانات المطلوبة غير كاملة' });
     }
 
-    const { nameAr, nameEn, descriptionAr, category, price, discount } = req.body;
-
-    const finalPrice = price - (price * (discount || 0)) / 100;
-
     const product = new Product({
-      ...req.body,
-      finalPrice
+      nameAr,
+      nameEn,
+      descriptionAr,
+      category,
+      price,
+      finalPrice: price,
+      images,
+      specifications,
+      sku: `SKU-${Date.now()}`,
+      stock: 0
     });
 
     await product.save();
@@ -84,49 +102,40 @@ export const create = async (req: Request, res: Response) => {
       message: 'تم إضافة المنتج بنجاح',
       data: product
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ في إضافة المنتج' });
   }
 };
 
-export const update = async (req: Request, res: Response) => {
+export const updateProduct = async (req: Request, res: Response) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
+    const { id } = req.params;
+    const product = await Product.findByIdAndUpdate(id, req.body, { new: true });
+
+    if (!product) {
+      return res.status(404).json({ error: 'المنتج غير موجود' });
     }
-
-    const { price, discount } = req.body;
-    const finalPrice = price - (price * (discount || 0)) / 100;
-
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, finalPrice, updatedAt: new Date() },
-      { new: true }
-    );
 
     res.json({
       success: true,
-      message: 'تم تحديث المنتج بنجاح',
+      message: 'تم تحديث المنتج',
       data: product
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ في التحديث' });
   }
 };
 
-export const delete_ = async (req: Request, res: Response) => {
+export const deleteProduct = async (req: Request, res: Response) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
-    }
-
-    await Product.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+    await Product.findByIdAndDelete(id);
 
     res.json({
       success: true,
-      message: 'تم حذف المنتج بنجاح'
+      message: 'تم حذف المنتج'
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ في الحذف' });
   }
 };

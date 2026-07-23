@@ -1,34 +1,43 @@
 // Order Controller
 import { Request, Response } from 'express';
 import Order from '../models/Order';
-import { generateOrderNumber } from '../utils/helpers';
 
-export const create = async (req: Request, res: Response) => {
+interface AuthRequest extends Request {
+  user?: any;
+}
+
+export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
     const { items, deliveryAddress, paymentMethod, notes } = req.body;
+    const userId = req.user?.userId;
 
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'السلة فارغة' });
+    }
+
+    // Calculate totals
     let subtotal = 0;
-    // Calculate subtotal (will be done with actual product prices)
+    // In a real app, you would fetch prices from database
     items.forEach((item: any) => {
       subtotal += item.price * item.quantity;
     });
 
-    const tax = subtotal * 0.15; // 15% tax
-    const shippingCost = 100; // Fixed shipping
+    const tax = subtotal * 0.15;
+    const shippingCost = 100;
     const totalPrice = subtotal + tax + shippingCost;
 
     const order = new Order({
-      orderNumber: generateOrderNumber(),
-      userId: req.user?.userId,
+      orderNumber: `ORD-${Date.now()}`,
+      userId,
       items,
       subtotal,
       tax,
       shippingCost,
       totalPrice,
-      paymentMethod,
       deliveryAddress,
+      paymentMethod,
       notes,
-      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      status: 'pending'
     });
 
     await order.save();
@@ -38,47 +47,50 @@ export const create = async (req: Request, res: Response) => {
       message: 'تم إنشاء الطلب بنجاح',
       data: order
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ في إنشاء الطلب' });
   }
 };
 
-export const getMyOrders = async (req: Request, res: Response) => {
+export const getMyOrders = async (req: AuthRequest, res: Response) => {
   try {
-    const orders = await Order.find({ userId: req.user?.userId }).sort({ createdAt: -1 });
-    res.json({ success: true, data: orders });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    const userId = req.user?.userId;
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: orders
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const getById = async (req: Request, res: Response) => {
+export const getOrderById = async (req: AuthRequest, res: Response) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const { id } = req.params;
+    const order = await Order.findById(id);
+
     if (!order) {
       return res.status(404).json({ error: 'الطلب غير موجود' });
     }
 
-    // Check authorization
-    if (order.userId.toString() !== req.user?.userId && req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
-    }
-
-    res.json({ success: true, data: order });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const updateStatus = async (req: Request, res: Response) => {
+export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'غير مصرح' });
-    }
-
+    const { id } = req.params;
     const { status } = req.body;
+
     const order = await Order.findByIdAndUpdate(
-      req.params.id,
+      id,
       { status, updatedAt: new Date() },
       { new: true }
     );
@@ -88,7 +100,7 @@ export const updateStatus = async (req: Request, res: Response) => {
       message: 'تم تحديث حالة الطلب',
       data: order
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };

@@ -1,14 +1,22 @@
-// Auth Controller
+// Authentication Controller
 import { Request, Response } from 'express';
+import User from '../models/User';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import User from '../models/User';
+
+interface AuthRequest extends Request {
+  user?: any;
+}
 
 export const register = async (req: Request, res: Response) => {
   try {
     const { fullName, email, phone, password, confirmPassword } = req.body;
 
     // Validation
+    if (!fullName || !email || !phone || !password) {
+      return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+    }
+
     if (password !== confirmPassword) {
       return res.status(400).json({ error: 'كلمات المرور غير متطابقة' });
     }
@@ -33,11 +41,9 @@ export const register = async (req: Request, res: Response) => {
     await user.save();
 
     // Generate token
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
-    );
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'secret', {
+      expiresIn: process.env.JWT_EXPIRE || '7d'
+    });
 
     res.status(201).json({
       success: true,
@@ -50,8 +56,9 @@ export const register = async (req: Request, res: Response) => {
       },
       token
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'حدث خطأ في التسجيل' });
   }
 };
 
@@ -59,24 +66,23 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
+    if (!email || !password) {
+      return res.status(400).json({ error: 'البريد وكلمة المرور مطلوبة' });
+    }
+
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+      return res.status(401).json({ error: 'بيانات دخول غير صحيحة' });
     }
 
-    // Check password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+      return res.status(401).json({ error: 'بيانات دخول غير صحيحة' });
     }
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
-    );
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'secret', {
+      expiresIn: process.env.JWT_EXPIRE || '7d'
+    });
 
     res.json({
       success: true,
@@ -90,25 +96,29 @@ export const login = async (req: Request, res: Response) => {
       },
       token
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'حدث خطأ في الدخول' });
   }
 };
 
-export const getProfile = async (req: Request, res: Response) => {
+export const getProfile = async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.user?.userId);
     if (!user) {
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
-    res.json({ success: true, data: user });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ' });
   }
 };
 
-export const updateProfile = async (req: Request, res: Response) => {
+export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
     const { fullName, phone, address } = req.body;
 
@@ -121,9 +131,9 @@ export const updateProfile = async (req: Request, res: Response) => {
     res.json({
       success: true,
       message: 'تم تحديث الملف الشخصي',
-      data: user
+      user
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    res.status(500).json({ error: 'حدث خطأ في التحديث' });
   }
 };
